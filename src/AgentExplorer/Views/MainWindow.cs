@@ -3,6 +3,8 @@ using Terminal.Gui.Drawing;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using Terminal.Gui.Input;
+using AgentExplorer.Agents.L01_Foundation;
+using AgentExplorer.Agents.L02_ToolAgent;
 
 namespace AgentExplorer.Views;
 
@@ -19,18 +21,31 @@ public sealed class MainWindow : Runnable
         var tabView = new TabView
         {
             Width = Dim.Fill(),
-            Height = Dim.Fill() - 1 // leave room for status bar
+            Height = Dim.Fill() - 1
         };
 
-        // Lesson 1: Chat with a production assistant
-        var chatView = new ChatView();
-        tabView.AddTab(new Tab { DisplayText = "L1: Chat", View = chatView }, andSelect: true);
+        // Lesson 1: Chat without tools
+        tabView.AddTab(new Tab
+        {
+            DisplayText = "L1: Chat",
+            View = new ChatView(new ProductionAssistant())
+        }, andSelect: true);
+
+        // Lesson 2: Chat with tools
+        tabView.AddTab(new Tab
+        {
+            DisplayText = "L2: Tools",
+            View = new ChatView(new ToolUsingAssistant())
+        }, andSelect: false);
 
         // Placeholder tabs for future lessons
-        tabView.AddTab(new Tab { DisplayText = "L2: Tools", View = new Label { Text = "  Lesson 2: Tool-Using Agent (coming soon)" } }, andSelect: false);
-        tabView.AddTab(new Tab { DisplayText = "L3: MCP", View = new Label { Text = "  Lesson 3: MCP Integration (coming soon)" } }, andSelect: false);
+        tabView.AddTab(new Tab
+        {
+            DisplayText = "L3: MCP",
+            View = new Label { Text = "  Lesson 3: MCP Integration (coming soon)" }
+        }, andSelect: false);
 
-        // Status bar at the bottom
+        // Status bar
         var statusBar = new Label
         {
             Text = " Esc: Quit | Enter: Send message",

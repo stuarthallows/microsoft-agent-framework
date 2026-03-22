@@ -455,3 +455,5 @@ frontend/stats.html
 
 # Generated reports
 scripts/loc-report/loc-report.html
+
+docs/user-stories

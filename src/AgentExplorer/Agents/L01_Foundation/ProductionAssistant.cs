@@ -1,6 +1,7 @@
 using Microsoft.Agents.AI;
 using Microsoft.Extensions.AI;
 using OllamaSharp;
+using AgentExplorer.Shared;
 
 namespace AgentExplorer.Agents.L01_Foundation;
 
@@ -8,10 +9,12 @@ namespace AgentExplorer.Agents.L01_Foundation;
 /// Lesson 1: A simple production floor assistant for Vector Technologies.
 /// Uses Ollama as the local LLM backend and MAF's AIAgent for conversation management.
 /// </summary>
-public class ProductionAssistant
+public class ProductionAssistant : IChatAgent
 {
     private readonly AIAgent _agent;
     private readonly AgentSession _session;
+
+    public string DisplayName => "L1: Production Chat (No Tools)";
 
     // --- System Prompt Design Notes ---
     //

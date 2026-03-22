@@ -3,34 +3,35 @@ using Terminal.Gui.Drawing;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using Terminal.Gui.Input;
-using AgentExplorer.Agents.L01_Foundation;
+using AgentExplorer.Shared;
 
 namespace AgentExplorer.Views;
 
 /// <summary>
-/// Chat panel: conversation history (read-only) at top, text input at bottom.
-/// Sends user messages to the production assistant agent and streams responses.
+/// Reusable chat panel that works with any IChatAgent.
+/// Shows conversation history at top, text input at bottom.
+/// Streams responses token-by-token and marshals UI updates to the main thread.
 /// </summary>
 public sealed class ChatView : View
 {
     private readonly TextView _chatHistory;
     private readonly TextField _inputField;
-    private readonly ProductionAssistant _agent;
+    private readonly IChatAgent _agent;
 
-    public ChatView()
+    public ChatView(IChatAgent agent)
     {
         Width = Dim.Fill();
         Height = Dim.Fill();
         CanFocus = true;
 
-        _agent = new ProductionAssistant();
+        _agent = agent;
 
         // Chat history in a bordered frame
         var chatFrame = new FrameView
         {
-            Title = "Vector Technologies - Production Assistant",
+            Title = agent.DisplayName,
             Width = Dim.Fill(),
-            Height = Dim.Fill() - 3, // leave room for input area
+            Height = Dim.Fill() - 3,
             BorderStyle = LineStyle.Rounded
         };
 
@@ -65,12 +66,11 @@ public sealed class ChatView : View
         _inputField.Accepting += OnInputAccepting;
         inputFrame.Add(_inputField);
 
-        AppendToHistory("Welcome to the Vector Technologies Production Assistant.");
+        AppendToHistory($"Welcome to {agent.DisplayName}.");
         AppendToHistory("Type a message below and press Enter to chat.\n");
 
         Add(chatFrame, inputFrame);
 
-        // Ensure the input field gets focus when this view is first displayed
         Initialized += (_, _) => _inputField.SetFocus();
     }
 
@@ -86,10 +86,6 @@ public sealed class ChatView : View
         AppendToHistory($"You: {userMessage}");
         AppendToHistory("Assistant: ");
 
-        // Run async work on a background thread. All UI updates are marshalled
-        // back to the main thread via App.Invoke — Terminal.Gui is not
-        // thread-safe, so touching views from a background thread causes
-        // rendering corruption or crashes.
         var app = App!;
         _ = Task.Run(async () =>
         {
