@@ -1,10 +1,9 @@
-using Terminal.Gui.App;
 using Terminal.Gui.Drawing;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
-using Terminal.Gui.Input;
 using AgentExplorer.Agents.L01_Foundation;
 using AgentExplorer.Agents.L02_ToolAgent;
+using AgentExplorer.Agents.L03_MCP;
 
 namespace AgentExplorer.Views;
 
@@ -38,11 +37,11 @@ public sealed class MainWindow : Runnable
             View = new ChatView(new ToolUsingAssistant())
         }, andSelect: false);
 
-        // Placeholder tabs for future lessons
+        // Lesson 3: Chat with MCP + local tools
         tabView.AddTab(new Tab
         {
             DisplayText = "L3: MCP",
-            View = new Label { Text = "  Lesson 3: MCP Integration (coming soon)" }
+            View = new ChatView(new LazyMcpAgent())
         }, andSelect: false);
 
         // Status bar

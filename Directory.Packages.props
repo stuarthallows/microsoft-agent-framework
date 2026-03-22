@@ -9,6 +9,8 @@
     <PackageVersion Include="Microsoft.Extensions.AI" Version="10.4.1" />
     <PackageVersion Include="OllamaSharp" Version="5.4.24" />
     <PackageVersion Include="Terminal.Gui" Version="2.0.0-develop.5189" />
+    <PackageVersion Include="ModelContextProtocol" Version="1.1.0" />
+    <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.0" />
   </ItemGroup>
 
 </Project>

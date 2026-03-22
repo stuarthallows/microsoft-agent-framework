@@ -1,5 +1,6 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/AgentExplorer/AgentExplorer.csproj" />
+    <Project Path="src/SupplierMcpServer/SupplierMcpServer.csproj" />
   </Folder>
 </Solution>

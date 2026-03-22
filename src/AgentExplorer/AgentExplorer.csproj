@@ -9,6 +9,7 @@
     <PackageReference Include="Microsoft.Extensions.AI" />
     <PackageReference Include="OllamaSharp" />
     <PackageReference Include="Terminal.Gui" />
+    <PackageReference Include="ModelContextProtocol" />
   </ItemGroup>
 
 </Project>

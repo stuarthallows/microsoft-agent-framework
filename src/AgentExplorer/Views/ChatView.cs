@@ -16,7 +16,12 @@ public sealed class ChatView : View
 {
     private readonly TextView _chatHistory;
     private readonly TextField _inputField;
+    private readonly FrameView _inputFrame;
     private readonly IChatAgent _agent;
+    private bool _isThinking;
+
+    private static readonly string[] SpinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"];
+    private int _spinnerFrame;
 
     public ChatView(IChatAgent agent)
     {
@@ -26,7 +31,6 @@ public sealed class ChatView : View
 
         _agent = agent;
 
-        // Chat history in a bordered frame
         var chatFrame = new FrameView
         {
             Title = agent.DisplayName,
@@ -46,8 +50,7 @@ public sealed class ChatView : View
 
         chatFrame.Add(_chatHistory);
 
-        // Input area in a bordered frame
-        var inputFrame = new FrameView
+        _inputFrame = new FrameView
         {
             Title = "Message",
             Y = Pos.Bottom(chatFrame),
@@ -64,14 +67,29 @@ public sealed class ChatView : View
         };
 
         _inputField.Accepting += OnInputAccepting;
-        inputFrame.Add(_inputField);
+        _inputFrame.Add(_inputField);
 
         AppendToHistory($"Welcome to {agent.DisplayName}.");
         AppendToHistory("Type a message below and press Enter to chat.\n");
 
-        Add(chatFrame, inputFrame);
+        Add(chatFrame, _inputFrame);
 
-        Initialized += (_, _) => _inputField.SetFocus();
+        Initialized += (_, _) =>
+        {
+            _inputField.SetFocus();
+
+            // Start the thinking animation timer — runs on the UI thread,
+            // only updates the display when _isThinking is true.
+            App!.AddTimeout(TimeSpan.FromMilliseconds(80), () =>
+            {
+                if (_isThinking)
+                {
+                    _spinnerFrame = (_spinnerFrame + 1) % SpinnerFrames.Length;
+                    UpdateThinkingLine();
+                }
+                return true; // keep the timer alive
+            });
+        };
     }
 
     private void OnInputAccepting(object? sender, CommandEventArgs e)
@@ -84,28 +102,86 @@ public sealed class ChatView : View
         _inputField.Text = "";
 
         AppendToHistory($"You: {userMessage}");
-        AppendToHistory("Assistant: ");
+        AppendToHistory($"Assistant: {SpinnerFrames[0]}");
+        _isThinking = true;
+        _inputFrame.Title = "Waiting for response...";
 
         var app = App!;
         _ = Task.Run(async () =>
         {
             try
             {
+                // Keep the thinking animation running until we have actual
+                // text to display. During tool calling, the stream pauses
+                // while MAF invokes tools and feeds results back to the LLM —
+                // only then does the final response stream begin.
+                var receivedText = false;
                 await foreach (var chunk in _agent.StreamResponseAsync(userMessage))
                 {
-                    app.Invoke(() => AppendChunk(chunk));
+                    if (string.IsNullOrEmpty(chunk)) continue;
+
+                    app.Invoke(() =>
+                    {
+                        if (!receivedText)
+                        {
+                            _isThinking = false;
+                            _inputFrame.Title = "Message";
+                            ReplaceThinkingLine("Assistant: ");
+                            receivedText = true;
+                        }
+                        AppendChunk(chunk);
+                    });
                 }
-                app.Invoke(() => AppendToHistory("\n"));
+                app.Invoke(() =>
+                {
+                    if (!receivedText)
+                    {
+                        // Stream ended without any text (edge case)
+                        _isThinking = false;
+                        _inputFrame.Title = "Message";
+                        ReplaceThinkingLine("Assistant: (no response)\n");
+                    }
+                    else
+                    {
+                        AppendToHistory("\n");
+                    }
+                });
             }
             catch (Exception ex)
             {
                 app.Invoke(() =>
                 {
-                    AppendToHistory($"\n[Error: {ex.Message}]");
+                    _isThinking = false;
+                    _inputFrame.Title = "Message";
+                    ReplaceThinkingLine("Assistant: ");
+                    AppendToHistory($"[Error: {ex.Message}]");
                     AppendToHistory("Hint: Is Ollama running? Try: ollama serve\n");
                 });
             }
         });
+    }
+
+    private void UpdateThinkingLine()
+    {
+        var text = _chatHistory.Text ?? "";
+        // The thinking line looks like "Assistant: ⠋\n" — find and replace the spinner char
+        var prefix = "Assistant: ";
+        var lineStart = text.LastIndexOf(prefix, StringComparison.Ordinal);
+        if (lineStart < 0) return;
+
+        var afterPrefix = lineStart + prefix.Length;
+        _chatHistory.Text = text[..afterPrefix] + SpinnerFrames[_spinnerFrame] + "\n";
+    }
+
+    private void ReplaceThinkingLine(string replacement)
+    {
+        var text = _chatHistory.Text ?? "";
+        var prefix = "Assistant: ";
+        var lineStart = text.LastIndexOf(prefix, StringComparison.Ordinal);
+        if (lineStart >= 0)
+        {
+            _chatHistory.Text = text[..lineStart] + replacement;
+        }
     }
 
     private void AppendToHistory(string text)
