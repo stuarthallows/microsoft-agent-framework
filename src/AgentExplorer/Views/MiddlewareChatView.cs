@@ -2,35 +2,59 @@ using Terminal.Gui.Drawing;
 using Terminal.Gui.ViewBase;
 using Terminal.Gui.Views;
 using Terminal.Gui.Input;
-using AgentExplorer.Shared;
+using AgentExplorer.Agents.L04_Middleware;
 
 namespace AgentExplorer.Views;
 
 /// <summary>
-/// Reusable chat panel that works with any IChatAgent.
-/// Shows conversation history at top, text input at bottom.
-/// Streams responses token-by-token and marshals UI updates to the main thread.
+/// Lesson 4: Extended chat view that adds a role selector and displays
+/// audit log events (tool calls, context injections) inline in the chat.
 /// </summary>
-public sealed class ChatView : View
+public sealed class MiddlewareChatView : View
 {
     private readonly ThinkingTextView _chatHistory;
     private readonly TextField _inputField;
     private readonly FrameView _inputFrame;
-    private readonly IChatAgent _agent;
+    private readonly MiddlewareAssistant _agent;
+    private readonly List<string> _pendingAuditEvents = [];
 
-    public ChatView(IChatAgent agent)
+    private static readonly string[] Roles = ["Operator", "Supervisor", "Manager"];
+
+    public MiddlewareChatView()
     {
         Width = Dim.Fill();
         Height = Dim.Fill();
         CanFocus = true;
 
-        _agent = agent;
+        _agent = new MiddlewareAssistant();
 
+        // Role selector dropdown
+        var roleLabel = new Label { Text = "Role: ", Width = 6 };
+        var roleDropDown = new DropDownList
+        {
+            X = Pos.Right(roleLabel),
+            Width = 20,
+            ReadOnly = true,
+            Text = Roles[0],
+            Source = new ListWrapper<string>(new(Roles)),
+        };
+
+        var roleFrame = new FrameView
+        {
+            Title = "User Role",
+            Width = Dim.Fill(),
+            Height = 3,
+            BorderStyle = LineStyle.Rounded
+        };
+        roleFrame.Add(roleLabel, roleDropDown);
+
+        // Chat history
         var chatFrame = new FrameView
         {
-            Title = agent.DisplayName,
+            Title = $"L4: Middleware ({_agent.CurrentRole})",
+            Y = Pos.Bottom(roleFrame),
             Width = Dim.Fill(),
-            Height = Dim.Fill() - 3,
+            Height = Dim.Fill() - 6,
             BorderStyle = LineStyle.Rounded
         };
 
@@ -39,9 +63,21 @@ public sealed class ChatView : View
             Width = Dim.Fill(),
             Height = Dim.Fill(),
         };
-
         chatFrame.Add(_chatHistory);
 
+        // Role change handler
+        roleDropDown.ValueChanged += (_, e) =>
+        {
+            var selected = e.NewValue?.Trim() ?? "";
+            if (Roles.Contains(selected) && selected != _agent.CurrentRole)
+            {
+                _agent.CurrentRole = selected;
+                chatFrame.Title = $"L4: Middleware ({selected})";
+                _chatHistory.Append($"\n[Role changed to: {selected}]\n");
+            }
+        };
+
+        // Input area
         _inputFrame = new FrameView
         {
             Title = "Message",
@@ -57,14 +93,34 @@ public sealed class ChatView : View
             CanFocus = true,
             TabStop = TabBehavior.TabStop
         };
-
         _inputField.Accepting += OnInputAccepting;
         _inputFrame.Add(_inputField);
 
-        _chatHistory.Append($"Welcome to {agent.DisplayName}.");
-        _chatHistory.Append("Type a message below and press Enter to chat.\n");
+        // Audit event subscriber — queue during thinking, flush on first token
+        _agent.AuditLog.OnEntry += entry =>
+        {
+            if (entry.EventType is "AgentRun" or "ToolCall" or "ToolResult" or "ContextInjection")
+            {
+                var prefix = entry.EventType switch
+                {
+                    "AgentRun" => "~~ ",
+                    "ToolCall" => ">> ",
+                    "ToolResult" => "<< ",
+                    "ContextInjection" => "** ",
+                    _ => "   "
+                };
+                lock (_pendingAuditEvents)
+                {
+                    _pendingAuditEvents.Add($"[{prefix}{entry.Detail}]");
+                }
+            }
+        };
 
-        Add(chatFrame, _inputFrame);
+        _chatHistory.Append("Welcome to L4: Middleware & Context Providers.");
+        _chatHistory.Append("Select a role from the dropdown to change context.");
+        _chatHistory.Append("Tool calls and context injections are shown inline.\n");
+
+        Add(roleFrame, chatFrame, _inputFrame);
 
         Initialized += (_, _) =>
         {
@@ -85,6 +141,7 @@ public sealed class ChatView : View
         _chatHistory.Append($"You: {userMessage}");
         _chatHistory.StartThinking();
         _inputFrame.Title = "Waiting for response...";
+        lock (_pendingAuditEvents) { _pendingAuditEvents.Clear(); }
 
         var app = App!;
         _ = Task.Run(async () =>
@@ -100,8 +157,9 @@ public sealed class ChatView : View
                     {
                         if (!receivedText)
                         {
-                            _chatHistory.StopThinking();
                             _inputFrame.Title = "Message";
+                            _chatHistory.StopThinking();
+                            FlushAuditEvents();
                             _chatHistory.Append("Assistant: ");
                             receivedText = true;
                         }
@@ -133,5 +191,20 @@ public sealed class ChatView : View
                 });
             }
         });
+    }
+
+    private void FlushAuditEvents()
+    {
+        List<string> events;
+        lock (_pendingAuditEvents)
+        {
+            events = [.. _pendingAuditEvents];
+            _pendingAuditEvents.Clear();
+        }
+
+        foreach (var evt in events)
+        {
+            _chatHistory.Append(evt);
+        }
     }
 }

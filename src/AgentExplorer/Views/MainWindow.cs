@@ -44,6 +44,13 @@ public sealed class MainWindow : Runnable
             View = new ChatView(new LazyMcpAgent())
         }, andSelect: false);
 
+        // Lesson 4: Chat with middleware + role context
+        tabView.AddTab(new Tab
+        {
+            DisplayText = "L4: Middleware",
+            View = new MiddlewareChatView()
+        }, andSelect: false);
+
         // Status bar
         var statusBar = new Label
         {
