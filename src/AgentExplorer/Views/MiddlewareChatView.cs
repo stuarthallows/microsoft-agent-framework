@@ -1,7 +1,4 @@
-using Terminal.Gui.Drawing;
-using Terminal.Gui.ViewBase;
-using Terminal.Gui.Views;
-using Terminal.Gui.Input;
+using Terminal.Gui;
 using AgentExplorer.Agents.L04_Middleware;
 
 namespace AgentExplorer.Views;
@@ -28,15 +25,13 @@ public sealed class MiddlewareChatView : View
 
         _agent = new MiddlewareAssistant();
 
-        // Role selector dropdown
-        var roleLabel = new Label { Text = "Role: ", Width = 6 };
-        var roleDropDown = new DropDownList
+        // Role selector — horizontal radio buttons
+        var roleSelector = new RadioGroup
         {
-            X = Pos.Right(roleLabel),
-            Width = 20,
-            ReadOnly = true,
-            Text = Roles[0],
-            Source = new ListWrapper<string>(new(Roles)),
+            X = 1,
+            RadioLabels = Roles,
+            Orientation = Orientation.Horizontal,
+            SelectedItem = 0,
         };
 
         var roleFrame = new FrameView
@@ -46,7 +41,7 @@ public sealed class MiddlewareChatView : View
             Height = 3,
             BorderStyle = LineStyle.Rounded
         };
-        roleFrame.Add(roleLabel, roleDropDown);
+        roleFrame.Add(roleSelector);
 
         // Chat history
         var chatFrame = new FrameView
@@ -54,7 +49,7 @@ public sealed class MiddlewareChatView : View
             Title = $"L4: Middleware ({_agent.CurrentRole})",
             Y = Pos.Bottom(roleFrame),
             Width = Dim.Fill(),
-            Height = Dim.Fill() - 6,
+            Height = Dim.Fill()! - 6,
             BorderStyle = LineStyle.Rounded
         };
 
@@ -66,10 +61,10 @@ public sealed class MiddlewareChatView : View
         chatFrame.Add(_chatHistory);
 
         // Role change handler
-        roleDropDown.ValueChanged += (_, e) =>
+        roleSelector.SelectedItemChanged += (_, e) =>
         {
-            var selected = e.NewValue?.Trim() ?? "";
-            if (Roles.Contains(selected) && selected != _agent.CurrentRole)
+            var selected = Roles[roleSelector.SelectedItem];
+            if (selected != _agent.CurrentRole)
             {
                 _agent.CurrentRole = selected;
                 chatFrame.Title = $"L4: Middleware ({selected})";
@@ -135,7 +130,7 @@ public sealed class MiddlewareChatView : View
         if (string.IsNullOrEmpty(userMessage))
             return;
 
-        e.Handled = true;
+        e.Cancel = true;
         _inputField.Text = "";
 
         _chatHistory.Append($"You: {userMessage}");
@@ -143,7 +138,6 @@ public sealed class MiddlewareChatView : View
         _inputFrame.Title = "Waiting for response...";
         lock (_pendingAuditEvents) { _pendingAuditEvents.Clear(); }
 
-        var app = App!;
         _ = Task.Run(async () =>
         {
             try
@@ -153,7 +147,7 @@ public sealed class MiddlewareChatView : View
                 {
                     if (string.IsNullOrEmpty(chunk)) continue;
 
-                    app.Invoke(() =>
+                    Application.Invoke(() =>
                     {
                         if (!receivedText)
                         {
@@ -166,7 +160,7 @@ public sealed class MiddlewareChatView : View
                         _chatHistory.AppendChunk(chunk);
                     });
                 }
-                app.Invoke(() =>
+                Application.Invoke(() =>
                 {
                     if (!receivedText)
                     {
@@ -181,7 +175,7 @@ public sealed class MiddlewareChatView : View
             }
             catch (Exception ex)
             {
-                app.Invoke(() =>
+                Application.Invoke(() =>
                 {
                     _chatHistory.StopThinking();
                     _inputFrame.Title = "Message";

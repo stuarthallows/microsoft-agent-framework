@@ -1,4 +1,4 @@
-using Terminal.Gui.Views;
+using Terminal.Gui;
 
 namespace AgentExplorer.Views;
 
@@ -29,7 +29,7 @@ public sealed class ThinkingTextView : TextView
         if (_timerStarted) return;
         _timerStarted = true;
 
-        App!.AddTimeout(TimeSpan.FromMilliseconds(80), () =>
+        Application.AddTimeout(TimeSpan.FromMilliseconds(80), () =>
         {
             if (_isThinking)
             {

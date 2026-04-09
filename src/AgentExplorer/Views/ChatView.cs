@@ -1,7 +1,4 @@
-using Terminal.Gui.Drawing;
-using Terminal.Gui.ViewBase;
-using Terminal.Gui.Views;
-using Terminal.Gui.Input;
+using Terminal.Gui;
 using AgentExplorer.Shared;
 
 namespace AgentExplorer.Views;
@@ -30,7 +27,7 @@ public sealed class ChatView : View
         {
             Title = agent.DisplayName,
             Width = Dim.Fill(),
-            Height = Dim.Fill() - 3,
+            Height = Dim.Fill()! - 3,
             BorderStyle = LineStyle.Rounded
         };
 
@@ -79,14 +76,13 @@ public sealed class ChatView : View
         if (string.IsNullOrEmpty(userMessage))
             return;
 
-        e.Handled = true;
+        e.Cancel = true;
         _inputField.Text = "";
 
         _chatHistory.Append($"You: {userMessage}");
         _chatHistory.StartThinking();
         _inputFrame.Title = "Waiting for response...";
 
-        var app = App!;
         _ = Task.Run(async () =>
         {
             try
@@ -96,7 +92,7 @@ public sealed class ChatView : View
                 {
                     if (string.IsNullOrEmpty(chunk)) continue;
 
-                    app.Invoke(() =>
+                    Application.Invoke(() =>
                     {
                         if (!receivedText)
                         {
@@ -108,7 +104,7 @@ public sealed class ChatView : View
                         _chatHistory.AppendChunk(chunk);
                     });
                 }
-                app.Invoke(() =>
+                Application.Invoke(() =>
                 {
                     if (!receivedText)
                     {
@@ -123,7 +119,7 @@ public sealed class ChatView : View
             }
             catch (Exception ex)
             {
-                app.Invoke(() =>
+                Application.Invoke(() =>
                 {
                     _chatHistory.StopThinking();
                     _inputFrame.Title = "Message";

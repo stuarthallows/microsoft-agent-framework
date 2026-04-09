@@ -1,16 +1,15 @@
-using Terminal.Gui.Drawing;
-using Terminal.Gui.ViewBase;
-using Terminal.Gui.Views;
+using Terminal.Gui;
 using AgentExplorer.Agents.L01_Foundation;
 using AgentExplorer.Agents.L02_ToolAgent;
 using AgentExplorer.Agents.L03_MCP;
+using AgentExplorer.Agents.L05_Sequential;
 
 namespace AgentExplorer.Views;
 
 /// <summary>
 /// Main application window with a tab layout for switching between lessons.
 /// </summary>
-public sealed class MainWindow : Runnable
+public sealed class MainWindow : Window
 {
     public MainWindow()
     {
@@ -20,7 +19,7 @@ public sealed class MainWindow : Runnable
         var tabView = new TabView
         {
             Width = Dim.Fill(),
-            Height = Dim.Fill() - 1
+            Height = Dim.Fill()! - 1
         };
 
         // Lesson 1: Chat without tools
@@ -51,6 +50,13 @@ public sealed class MainWindow : Runnable
             View = new MiddlewareChatView()
         }, andSelect: false);
 
+        // Lesson 5: Sequential order processing pipeline
+        tabView.AddTab(new Tab
+        {
+            DisplayText = "L5: Sequential",
+            View = new ChatView(new SequentialAssistant())
+        }, andSelect: false);
+
         // Status bar
         var statusBar = new Label
         {
@@ -58,7 +64,7 @@ public sealed class MainWindow : Runnable
             Y = Pos.Bottom(tabView),
             Width = Dim.Fill(),
             Height = 1,
-            SchemeName = "Menu"
+            ColorScheme = Colors.ColorSchemes["Menu"]
         };
 
         Add(tabView, statusBar);
